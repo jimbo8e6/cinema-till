@@ -33,10 +33,8 @@ export function TicketsTab() {
   // Find the range of dates that have any shows
   const showDates = Array.from(new Set(shows.map((s) => s.date))).sort()
   const minDate = showDates[0] ?? today
-  const maxDate = showDates[showDates.length - 1] ?? addDays(today, 30)
 
   const canGoBack = activeDate > minDate
-  const canGoForward = activeDate < maxDate
 
   return (
     <>
@@ -65,7 +63,6 @@ export function TicketsTab() {
             type="date"
             value={activeDate}
             min={minDate}
-            max={maxDate}
             onChange={(e) => e.target.value && setActiveDate(e.target.value)}
             className="absolute inset-0 opacity-0 cursor-pointer w-full"
             tabIndex={-1}
@@ -74,7 +71,7 @@ export function TicketsTab() {
 
         <button
           onClick={() => setActiveDate((d) => addDays(d, 1))}
-          disabled={!canGoForward}
+          disabled={false}
           className="w-9 h-9 rounded-lg bg-gray-800 text-white flex items-center justify-center hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-lg"
         >
           ›
