@@ -5,9 +5,9 @@ import { TicketSelector } from './TicketSelector'
 import type { Show } from '../types'
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const result = new Date(Date.UTC(y, m - 1, d + days))
+  return result.toISOString().split('T')[0]
 }
 
 function formatDateLabel(dateStr: string, today: string): string {
