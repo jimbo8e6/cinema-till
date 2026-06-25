@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSchedule } from '../hooks/useSchedule'
 import { useConcessions } from '../hooks/useConcessions'
-import { useBasketStore, useSettingsStore } from '../store'
+import { useBasketStore, useSettingsStore, useScheduleStore } from '../store'
 import { TicketsTab } from './TicketsTab'
 import { ConcessionsTab } from './ConcessionsTab'
 import { Basket } from './Basket'
@@ -15,10 +15,16 @@ export function TillApp() {
   const syncCode = useSettingsStore((s) => s.syncCode)
   const setSyncCode = useSettingsStore((s) => s.setSyncCode)
   const { items, total } = useBasketStore()
+  const loading = useScheduleStore((s) => s.loading)
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
 
-  useSchedule()
-  useConcessions()
+  const { reload: reloadSchedule } = useSchedule()
+  const { reload: reloadConcessions } = useConcessions()
+
+  const handleRefresh = () => {
+    reloadSchedule()
+    reloadConcessions()
+  }
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
@@ -31,6 +37,25 @@ export function TillApp() {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            title="Refresh schedule"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+            >
+              <path
+                fillRule="evenodd"
+                d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.46-.326Zm.11-8.548a.75.75 0 0 0-.752.756v2.43l-.31-.31A7 7 0 0 0 3.648 8.44a.75.75 0 0 0 1.46.326 5.5 5.5 0 0 1 9.202-2.466l.311.31H12.19a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .75-.75V3.117a.75.75 0 0 0-.75-.75l-.02.009Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
           <button
             onClick={() => setSyncCode('')}
             className="text-gray-500 hover:text-gray-300 text-xs hidden sm:block"
