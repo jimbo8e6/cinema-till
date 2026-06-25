@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSchedule } from '../hooks/useSchedule'
 import { useConcessions } from '../hooks/useConcessions'
 import { useBasketStore, useSettingsStore, useScheduleStore } from '../store'
@@ -25,6 +25,13 @@ export function TillApp() {
     reloadSchedule()
     reloadConcessions()
   }
+
+  useEffect(() => {
+    const INTERVAL = 60_000
+    const tick = () => { if (document.visibilityState === 'visible') handleRefresh() }
+    const id = setInterval(tick, INTERVAL)
+    return () => clearInterval(id)
+  }, [reloadSchedule, reloadConcessions])
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
