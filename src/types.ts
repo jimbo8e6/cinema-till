@@ -38,6 +38,7 @@ export interface ScheduleData {
   films: Film[]
   ticketTypes?: SchedulerTicketType[]
   priceCards?: PriceCard[]
+  screenCapacities?: Record<string, number>
 }
 
 // Concession items (from concession_items table)

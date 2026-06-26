@@ -22,9 +22,10 @@ interface ScheduleState {
   shows: Show[]
   ticketTypes: SchedulerTicketType[]
   priceCards: PriceCard[]
+  screenCapacities: Record<string, number>
   loading: boolean
   error: string | null
-  setSchedule: (films: Film[], shows: Show[], ticketTypes: SchedulerTicketType[], priceCards: PriceCard[]) => void
+  setSchedule: (films: Film[], shows: Show[], ticketTypes: SchedulerTicketType[], priceCards: PriceCard[], screenCapacities: Record<string, number>) => void
   setLoading: (v: boolean) => void
   setError: (msg: string | null) => void
 }
@@ -34,10 +35,11 @@ export const useScheduleStore = create<ScheduleState>((set) => ({
   shows: [],
   ticketTypes: [],
   priceCards: [],
+  screenCapacities: {},
   loading: false,
   error: null,
-  setSchedule: (films, shows, ticketTypes, priceCards) =>
-    set({ films, shows, ticketTypes, priceCards, error: null }),
+  setSchedule: (films, shows, ticketTypes, priceCards, screenCapacities) =>
+    set({ films, shows, ticketTypes, priceCards, screenCapacities, error: null }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
 }))

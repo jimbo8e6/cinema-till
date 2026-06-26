@@ -73,7 +73,7 @@ function SalesModal({ show, filmTitle, onClose, sales }: SalesModalProps) {
 }
 
 export function TicketsTab() {
-  const { films, shows, loading, error } = useScheduleStore()
+  const { films, shows, screenCapacities, loading, error } = useScheduleStore()
   const salesByShow = useSalesStore((s) => s.salesByShow)
   const [selected, setSelected] = useState<Show | null>(null)
   const [salesShow, setSalesShow] = useState<Show | null>(null)
@@ -169,6 +169,12 @@ export function TicketsTab() {
             if (!film) return null
             const sales = salesByShow[show.id]
             const soldCount = sales?.total ?? 0
+            const capacity = screenCapacities[String(show.screen)]
+            const pct = capacity ? Math.min(100, (soldCount / capacity) * 100) : null
+            const barColor = pct === null ? 'bg-blue-500'
+              : pct >= 90 ? 'bg-red-500'
+              : pct >= 70 ? 'bg-amber-500'
+              : 'bg-green-500'
             return (
               <div key={show.id} className="bg-gray-800 border border-gray-700 rounded-xl overflow-hidden">
                 <button
@@ -215,12 +221,26 @@ export function TicketsTab() {
 
                 <button
                   onClick={() => setSalesShow(show)}
-                  className="w-full border-t border-gray-700 px-4 py-2 flex items-center justify-between hover:bg-gray-700 transition-colors"
+                  className="w-full border-t border-gray-700 px-4 pt-2 pb-3 hover:bg-gray-700 transition-colors"
                 >
-                  <span className="text-gray-500 text-xs">Tickets sold</span>
-                  <span className={`text-sm font-semibold ${soldCount > 0 ? 'text-green-400' : 'text-gray-600'}`}>
-                    {soldCount}
-                  </span>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-gray-500 text-xs">Tickets sold</span>
+                    <span className={`text-xs font-semibold ${soldCount > 0 ? 'text-white' : 'text-gray-600'}`}>
+                      {capacity ? `${soldCount} / ${capacity}` : soldCount}
+                    </span>
+                  </div>
+                  {capacity ? (
+                    <div className="w-full bg-gray-700 rounded-full h-1.5">
+                      <div
+                        className={`h-1.5 rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full bg-gray-700 rounded-full h-1.5">
+                      <div className="h-1.5 w-0 rounded-full bg-blue-500" />
+                    </div>
+                  )}
                 </button>
               </div>
             )
