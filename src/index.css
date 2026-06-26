@@ -6,12 +6,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+html,
 body {
+  height: 100%;
+  overflow: hidden;
   margin: 0;
   overscroll-behavior: none;
 }
 
 #root {
   width: 100%;
-  min-height: 100svh;
+  height: 100%;
 }
