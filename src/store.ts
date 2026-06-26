@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BasketItem, ConcessionItem, Film, PriceCard, SchedulerTicketType, Show } from './types'
+import type { BasketItem, BasketTicket, ConcessionItem, Film, PriceCard, SchedulerTicketType, Show } from './types'
 
 interface SettingsState {
   syncCode: string
