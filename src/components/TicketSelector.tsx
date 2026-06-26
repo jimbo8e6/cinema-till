@@ -24,6 +24,10 @@ export function TicketSelector({ show, film, onClose }: Props) {
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(resolvedTypes.map((tt) => [tt.id, 0]))
   )
+  const PAGE_SIZE = 5
+  const [page, setPage] = useState(0)
+  const totalPages = Math.ceil(resolvedTypes.length / PAGE_SIZE)
+  const pageTypes = resolvedTypes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const total = resolvedTypes.reduce((sum, tt) => sum + (quantities[tt.id] ?? 0) * tt.price, 0)
   const hasItems = resolvedTypes.some((tt) => (quantities[tt.id] ?? 0) > 0)
@@ -73,7 +77,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
               No ticket types configured — add them in the scheduler.
             </p>
           ) : (
-            resolvedTypes.map((tt) => (
+            pageTypes.map((tt) => (
               <div key={tt.id} className="flex items-center justify-between">
                 <div>
                   <span className="text-white font-medium">{tt.name}</span>
@@ -100,6 +104,28 @@ export function TicketSelector({ show, film, onClose }: Props) {
             ))
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 pb-3">
+            <button
+              onClick={() => setPage((p) => p - 1)}
+              disabled={page === 0}
+              className="text-sm px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ‹ Prev
+            </button>
+            <span className="text-gray-500 text-xs">
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={page === totalPages - 1}
+              className="text-sm px-3 py-1.5 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next ›
+            </button>
+          </div>
+        )}
 
         <div className="p-4 border-t border-gray-700 flex items-center gap-3">
           <span className="text-gray-400 text-sm flex-1">
