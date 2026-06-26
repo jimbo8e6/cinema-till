@@ -37,7 +37,7 @@ export function TillApp() {
   }, [reloadSchedule, reloadConcessions, reloadSales])
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
+    <div className="flex flex-col h-full bg-gray-900 overflow-hidden">
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-3">
