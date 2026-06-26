@@ -20,7 +20,12 @@ export function useSchedule() {
       return
     }
     const schedule = data.data as ScheduleData
-    setSchedule(schedule.films ?? [], schedule.shows ?? [])
+    setSchedule(
+      schedule.films ?? [],
+      schedule.shows ?? [],
+      schedule.ticketTypes ?? [],
+      schedule.priceCards ?? [],
+    )
     setLoading(false)
   }, [syncCode])
 

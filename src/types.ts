@@ -18,20 +18,26 @@ export interface Show {
   isFixed: boolean
   isSenior: boolean
   screeningType: string
+  priceCard?: string // priceCard.id
+}
+
+export interface SchedulerTicketType {
+  id: string
+  name: string
+  price: number
+}
+
+export interface PriceCard {
+  id: string
+  name: string
+  ticketTypeIds: string[]
 }
 
 export interface ScheduleData {
   shows: Show[]
   films: Film[]
-}
-
-// Ticket types
-export type TicketType = 'adult' | 'concession' | 'child' | 'senior'
-
-export interface TicketPrice {
-  type: TicketType
-  label: string
-  price: number
+  ticketTypes?: SchedulerTicketType[]
+  priceCards?: PriceCard[]
 }
 
 // Concession items (from concession_items table)
@@ -52,7 +58,7 @@ export interface BasketTicket {
   screenNumber: number
   startMinute: number
   date: string
-  ticketType: TicketType
+  ticketTypeId: string
   ticketLabel: string
   price: number
   quantity: number

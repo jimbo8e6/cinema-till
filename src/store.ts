@@ -1,13 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BasketItem, ConcessionItem, Film, Show, TicketType } from './types'
-
-const TICKET_PRICES: Record<TicketType, { label: string; price: number }> = {
-  adult: { label: 'Adult', price: 12.50 },
-  concession: { label: 'Concession', price: 9.00 },
-  child: { label: 'Child', price: 7.50 },
-  senior: { label: 'Senior', price: 9.00 },
-}
+import type { BasketItem, ConcessionItem, Film, PriceCard, SchedulerTicketType, Show } from './types'
 
 interface SettingsState {
   syncCode: string
@@ -27,9 +20,11 @@ export const useSettingsStore = create<SettingsState>()(
 interface ScheduleState {
   films: Film[]
   shows: Show[]
+  ticketTypes: SchedulerTicketType[]
+  priceCards: PriceCard[]
   loading: boolean
   error: string | null
-  setSchedule: (films: Film[], shows: Show[]) => void
+  setSchedule: (films: Film[], shows: Show[], ticketTypes: SchedulerTicketType[], priceCards: PriceCard[]) => void
   setLoading: (v: boolean) => void
   setError: (msg: string | null) => void
 }
@@ -37,9 +32,12 @@ interface ScheduleState {
 export const useScheduleStore = create<ScheduleState>((set) => ({
   films: [],
   shows: [],
+  ticketTypes: [],
+  priceCards: [],
   loading: false,
   error: null,
-  setSchedule: (films, shows) => set({ films, shows, error: null }),
+  setSchedule: (films, shows, ticketTypes, priceCards) =>
+    set({ films, shows, ticketTypes, priceCards, error: null }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
 }))
@@ -60,7 +58,7 @@ export const useConcessionStore = create<ConcessionState>((set) => ({
 
 interface BasketState {
   items: BasketItem[]
-  addTicket: (show: Show, film: Film, ticketType: TicketType, qty: number) => void
+  addTicket: (show: Show, film: Film, ticketTypeId: string, ticketLabel: string, price: number, qty: number) => void
   addConcession: (item: ConcessionItem, qty: number) => void
   removeItem: (index: number) => void
   updateQty: (index: number, qty: number) => void
@@ -71,19 +69,15 @@ interface BasketState {
 export const useBasketStore = create<BasketState>((set, get) => ({
   items: [],
 
-  addTicket: (show, film, ticketType, qty) => {
-    const { label, price } = TICKET_PRICES[ticketType]
+  addTicket: (show, film, ticketTypeId, ticketLabel, price, qty) => {
     const existingIdx = get().items.findIndex(
-      (i) =>
-        i.kind === 'ticket' &&
-        i.showId === show.id &&
-        i.ticketType === ticketType
+      (i) => i.kind === 'ticket' && i.showId === show.id && i.ticketTypeId === ticketTypeId
     )
     if (existingIdx >= 0) {
       const updated = [...get().items]
       updated[existingIdx] = {
         ...updated[existingIdx],
-        quantity: (updated[existingIdx] as BasketItem & { quantity: number }).quantity + qty,
+        quantity: (updated[existingIdx] as BasketTicket).quantity + qty,
       }
       set({ items: updated })
     } else {
@@ -97,8 +91,8 @@ export const useBasketStore = create<BasketState>((set, get) => ({
             screenNumber: show.screen,
             startMinute: show.startMinute,
             date: show.date,
-            ticketType,
-            ticketLabel: label,
+            ticketTypeId,
+            ticketLabel,
             price,
             quantity: qty,
           },
@@ -135,10 +129,7 @@ export const useBasketStore = create<BasketState>((set, get) => ({
     }
   },
 
-  removeItem: (index) => {
-    const updated = get().items.filter((_, i) => i !== index)
-    set({ items: updated })
-  },
+  removeItem: (index) => set({ items: get().items.filter((_, i) => i !== index) }),
 
   updateQty: (index, qty) => {
     if (qty <= 0) {
@@ -152,8 +143,6 @@ export const useBasketStore = create<BasketState>((set, get) => ({
 
   clear: () => set({ items: [] }),
 
-  total: () =>
-    get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
+  total: () => get().items.reduce((sum, item) => sum + item.price * item.quantity, 0),
 }))
 
-export const TICKET_PRICES_MAP = TICKET_PRICES
