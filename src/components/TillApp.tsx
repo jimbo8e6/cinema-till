@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSchedule } from '../hooks/useSchedule'
 import { useConcessions } from '../hooks/useConcessions'
+import { useSales } from '../hooks/useSales'
 import { useBasketStore, useSettingsStore, useScheduleStore } from '../store'
 import { TicketsTab } from './TicketsTab'
 import { ConcessionsTab } from './ConcessionsTab'
@@ -20,10 +21,12 @@ export function TillApp() {
 
   const { reload: reloadSchedule } = useSchedule()
   const { reload: reloadConcessions } = useConcessions()
+  const { reload: reloadSales } = useSales()
 
   const handleRefresh = () => {
     reloadSchedule()
     reloadConcessions()
+    reloadSales()
   }
 
   useEffect(() => {
@@ -31,7 +34,7 @@ export function TillApp() {
     const tick = () => { if (document.visibilityState === 'visible') handleRefresh() }
     const id = setInterval(tick, INTERVAL)
     return () => clearInterval(id)
-  }, [reloadSchedule, reloadConcessions])
+  }, [reloadSchedule, reloadConcessions, reloadSales])
 
   return (
     <div className="flex flex-col h-screen bg-gray-900 overflow-hidden">
