@@ -3,6 +3,7 @@ import { useScheduleStore } from '../store'
 import { minutesToTime, todayDateString } from '../lib/utils'
 import { TicketSelector } from './TicketSelector'
 import { useSalesStore } from '../hooks/useSales'
+import { RefundModal } from './RefundModal'
 import type { Show } from '../types'
 
 function addDays(dateStr: string, days: number): string {
@@ -77,6 +78,7 @@ export function TicketsTab() {
   const salesByShow = useSalesStore((s) => s.salesByShow)
   const [selected, setSelected] = useState<Show | null>(null)
   const [salesShow, setSalesShow] = useState<Show | null>(null)
+  const [refundOpen, setRefundOpen] = useState(false)
   const today = todayDateString()
   const [activeDate, setActiveDate] = useState(today)
   const calendarRef = useRef<HTMLInputElement>(null)
@@ -248,6 +250,19 @@ export function TicketsTab() {
         </div>
       )}
 
+      {/* Bottom action bar */}
+      <div className="p-4 border-t border-gray-700 bg-gray-900">
+        <div className="flex gap-3">
+          <button
+            onClick={() => setRefundOpen(true)}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors"
+          >
+            <span>↩</span>
+            Refund
+          </button>
+        </div>
+      </div>
+
       {selected && (
         <TicketSelector
           show={selected}
@@ -264,6 +279,8 @@ export function TicketsTab() {
           onClose={() => setSalesShow(null)}
         />
       )}
+
+      {refundOpen && <RefundModal onClose={() => setRefundOpen(false)} />}
     </>
   )
 }
