@@ -130,7 +130,7 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
   return (
     <>
       {/* Desktop sidebar */}
-      <div className="hidden sm:flex flex-col w-80 flex-shrink-0 bg-gray-900 border-l border-gray-700 h-full">
+      <div className="hidden sm:flex flex-col w-80 flex-shrink-0 bg-gray-900 border-l border-gray-700 overflow-hidden">
         {basketContent}
       </div>
 
