@@ -139,13 +139,14 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
   const [done, setDone] = useState(false)
   const [cashModalOpen, setCashModalOpen] = useState(false)
 
-  const processPayment = async (_method: 'card' | 'cash') => {
+  const processPayment = async (method: 'card' | 'cash') => {
     if (!items.length || !syncCode) return
     setProcessing(true)
     await supabase.from('transactions').insert({
       cinema_id: syncCode,
       items,
       total: total(),
+      payment_method: method,
     })
     clear()
     setProcessing(false)
