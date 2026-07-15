@@ -4,6 +4,7 @@ import { minutesToTime, todayDateString } from '../lib/utils'
 import { TicketSelector } from './TicketSelector'
 import { useSalesStore } from '../hooks/useSales'
 import { RefundModal } from './RefundModal'
+import { ReportModal } from './ReportModal'
 import type { Show } from '../types'
 
 function addDays(dateStr: string, days: number): string {
@@ -79,6 +80,7 @@ export function TicketsTab() {
   const [selected, setSelected] = useState<Show | null>(null)
   const [salesShow, setSalesShow] = useState<Show | null>(null)
   const [refundOpen, setRefundOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const today = todayDateString()
   const [activeDate, setActiveDate] = useState(today)
   const calendarRef = useRef<HTMLInputElement>(null)
@@ -260,6 +262,13 @@ export function TicketsTab() {
             <span>↩</span>
             Refund
           </button>
+          <button
+            onClick={() => setReportOpen(true)}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white text-sm font-medium px-4 py-3 rounded-xl transition-colors"
+          >
+            <span>📄</span>
+            Reports
+          </button>
         </div>
       </div>
 
@@ -281,6 +290,7 @@ export function TicketsTab() {
       )}
 
       {refundOpen && <RefundModal onClose={() => setRefundOpen(false)} />}
+      {reportOpen && <ReportModal onClose={() => setReportOpen(false)} />}
     </>
   )
 }
