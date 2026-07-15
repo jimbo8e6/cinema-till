@@ -95,7 +95,10 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
-  const splitTotal = transactions.filter((t) => t.payment_method === 'split').reduce((s, t) => s + t.total, 0)
+  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method))
+  const splitTotal = splitTxs.reduce((s, t) => s + t.total, 0)
+  const splitCash = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.cash ?? 0), 0)
+  const splitCard = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.card ?? 0), 0)
 
   const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -119,7 +122,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal)
+  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal, splitCash, splitCard)
 }
 
 function buildConcessionsReport(date: string, transactions: Transaction[]): string {
@@ -174,7 +177,10 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
-  const splitTotal = transactions.filter((t) => t.payment_method === 'split').reduce((s, t) => s + t.total, 0)
+  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method))
+  const splitTotal = splitTxs.reduce((s, t) => s + t.total, 0)
+  const splitCash = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.cash ?? 0), 0)
+  const splitCard = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.card ?? 0), 0)
 
   const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -198,7 +204,13 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal)
+  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal, splitCash, splitCard)
+}
+
+function parseSplit(paymentMethod: string | undefined): { cash: number; card: number } | null {
+  if (!paymentMethod?.startsWith('split|')) return null
+  const [, c, k] = paymentMethod.split('|')
+  return { cash: parseFloat(c) || 0, card: parseFloat(k) || 0 }
 }
 
 function buildTransactionLog(transactions: Transaction[]): string {
@@ -212,25 +224,30 @@ function buildTransactionLog(transactions: Transaction[]): string {
     const isRefund = tx.total < 0
     const isCash = tx.payment_method === 'cash'
     const isCard = tx.payment_method === 'card'
-    const isSplit = tx.payment_method === 'split'
-    const methodLabel = isRefund ? '↩ Refund' : isCash ? '💵 Cash' : isCard ? '💳 Card' : isSplit ? '⇌ Split' : '—'
+    const splitAmounts = parseSplit(tx.payment_method)
+    const methodLabel = isRefund
+      ? '↩ Refund'
+      : isCash ? '💵 Cash'
+      : isCard ? '💳 Card'
+      : splitAmounts ? '⇌ Split' : '—'
     const methodStyle = isRefund
       ? 'background:#fee2e2;color:#991b1b'
-      : isCash
-      ? 'background:#fef3c7;color:#92400e'
-      : isCard
-      ? 'background:#dbeafe;color:#1e3a8a'
-      : isSplit
-      ? 'background:#f3e8ff;color:#6b21a8'
+      : isCash ? 'background:#fef3c7;color:#92400e'
+      : isCard ? 'background:#dbeafe;color:#1e3a8a'
+      : splitAmounts ? 'background:#f3e8ff;color:#6b21a8'
       : 'background:#f5f5f5;color:#666'
     const totalStyle = isRefund ? 'color:#dc2626;font-weight:600' : 'font-weight:600'
+    const splitDetail = splitAmounts
+      ? `<br><span style="font-size:10px;color:#888">💵 ${formatPrice(splitAmounts.cash)} cash · 💳 ${formatPrice(splitAmounts.card)} card</span>`
+      : ''
 
     return `
       <tr style="border-bottom:1px solid #f0f0f0${isRefund ? ';background:#fff8f8' : ''}">
         <td style="padding:6px 12px;color:#555;white-space:nowrap;font-variant-numeric:tabular-nums">${time}</td>
         <td style="padding:6px 12px;color:#333;font-size:12px">${summary}</td>
-        <td style="padding:6px 12px;white-space:nowrap">
+        <td style="padding:6px 12px">
           <span style="${methodStyle};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${methodLabel}</span>
+          ${splitDetail}
         </td>
         <td style="padding:6px 12px;text-align:right;white-space:nowrap;${totalStyle}">${formatPrice(tx.total)}</td>
       </tr>`
@@ -256,7 +273,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number, refundTotal: number, splitTotal: number): string {
+function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number, refundTotal: number, splitTotal: number, splitCash: number, splitCard: number): string {
   const now = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   return `<!DOCTYPE html>
 <html>
@@ -303,6 +320,7 @@ function printShell(title: string, tableHtml: string, total: number, qty: number
     ${splitTotal > 0 ? `<div class="summary-item">
       <div class="label">⇌ Split</div>
       <div class="value">${formatPrice(splitTotal)}</div>
+      <div style="font-size:11px;color:#888;margin-top:2px">💵 ${formatPrice(splitCash)} · 💳 ${formatPrice(splitCard)}</div>
     </div>` : ''}
     ${refundTotal < 0 ? `<div class="summary-item">
       <div class="label">↩ Refunds</div>

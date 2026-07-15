@@ -129,7 +129,7 @@ function CashModal({ total, onConfirm, onClose, processing, done }: CashModalPro
 
 interface SplitModalProps {
   total: number
-  onConfirm: (method: 'split') => void
+  onConfirm: (method: 'split', cashAmount: number, cardAmount: number) => void
   onClose: () => void
   processing: boolean
   done: boolean
@@ -219,7 +219,7 @@ function SplitModal({ total, onConfirm, onClose, processing, done }: SplitModalP
 
           {/* Confirm */}
           <button
-            onClick={() => onConfirm('split')}
+            onClick={() => onConfirm('split', cash, cardAmount)}
             disabled={!validSplit || (cashReceived !== '' && !sufficientCash) || processing || done}
             className={`w-full font-bold py-4 rounded-xl text-white transition-all text-base ${
               done
@@ -250,14 +250,17 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
   const [cashModalOpen, setCashModalOpen] = useState(false)
   const [splitModalOpen, setSplitModalOpen] = useState(false)
 
-  const processPayment = async (method: 'card' | 'cash' | 'split') => {
+  const processPayment = async (method: 'card' | 'cash' | 'split', splitCash?: number, splitCard?: number) => {
     if (!items.length || !syncCode) return
     setProcessing(true)
+    const paymentMethod = method === 'split' && splitCash !== undefined && splitCard !== undefined
+      ? `split|${splitCash.toFixed(2)}|${splitCard.toFixed(2)}`
+      : method
     await supabase.from('transactions').insert({
       cinema_id: syncCode,
       items,
       total: total(),
-      payment_method: method,
+      payment_method: paymentMethod,
     })
     clear()
     setProcessing(false)
