@@ -92,6 +92,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
       </tr>`
   }).join('<tr><td colspan="4" style="padding:4px"></td></tr>')
 
+  const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
 
@@ -117,7 +118,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
+  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal)
 }
 
 function buildConcessionsReport(date: string, transactions: Transaction[]): string {
@@ -169,6 +170,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
     ? '<tr><td colspan="4" style="padding:20px;text-align:center;color:#999">No concession sales for this date</td></tr>'
     : ''
 
+  const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
 
@@ -194,7 +196,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
+  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal)
 }
 
 function buildTransactionLog(transactions: Transaction[]): string {
@@ -205,23 +207,27 @@ function buildTransactionLog(transactions: Transaction[]): string {
     const summary = tx.items
       .map((i) => `${i.quantity}× ${i.kind === 'ticket' ? i.ticketLabel : i.name}`)
       .join(', ')
+    const isRefund = tx.total < 0
     const isCash = tx.payment_method === 'cash'
     const isCard = tx.payment_method === 'card'
-    const methodLabel = isCash ? '💵 Cash' : isCard ? '💳 Card' : '—'
-    const methodStyle = isCash
+    const methodLabel = isRefund ? '↩ Refund' : isCash ? '💵 Cash' : isCard ? '💳 Card' : '—'
+    const methodStyle = isRefund
+      ? 'background:#fee2e2;color:#991b1b'
+      : isCash
       ? 'background:#fef3c7;color:#92400e'
       : isCard
       ? 'background:#dbeafe;color:#1e3a8a'
       : 'background:#f5f5f5;color:#666'
+    const totalStyle = isRefund ? 'color:#dc2626;font-weight:600' : 'font-weight:600'
 
     return `
-      <tr style="border-bottom:1px solid #f0f0f0">
+      <tr style="border-bottom:1px solid #f0f0f0${isRefund ? ';background:#fff8f8' : ''}">
         <td style="padding:6px 12px;color:#555;white-space:nowrap;font-variant-numeric:tabular-nums">${time}</td>
         <td style="padding:6px 12px;color:#333;font-size:12px">${summary}</td>
         <td style="padding:6px 12px;white-space:nowrap">
           <span style="${methodStyle};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${methodLabel}</span>
         </td>
-        <td style="padding:6px 12px;text-align:right;font-weight:600;white-space:nowrap">${formatPrice(tx.total)}</td>
+        <td style="padding:6px 12px;text-align:right;white-space:nowrap;${totalStyle}">${formatPrice(tx.total)}</td>
       </tr>`
   }).join('')
 
@@ -245,7 +251,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number): string {
+function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number, refundTotal: number): string {
   const now = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   return `<!DOCTYPE html>
 <html>
@@ -289,6 +295,10 @@ function printShell(title: string, tableHtml: string, total: number, qty: number
       <div class="label">💳 Card</div>
       <div class="value">${formatPrice(cardTotal)}</div>
     </div>
+    ${refundTotal < 0 ? `<div class="summary-item">
+      <div class="label">↩ Refunds</div>
+      <div class="value" style="color:#dc2626">${formatPrice(refundTotal)}</div>
+    </div>` : ''}
     <div class="summary-divider"></div>
     <div class="summary-item">
       <div class="label">Items Sold</div>
@@ -321,7 +331,6 @@ export function ReportModal({ onClose }: Props) {
       .eq('cinema_id', syncCode)
       .gte('created_at', dayStart)
       .lte('created_at', dayEnd)
-      .gt('total', 0) // exclude refund records
 
     const transactions = (data as Transaction[]) ?? []
     const html = type === 'tickets'
