@@ -95,7 +95,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
 
-  return printShell(`Tickets Report — ${formatDate(date)}`, `
+  const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="border-bottom:2px solid #222">
@@ -115,7 +115,9 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
         </tr>
       </tfoot>
     </table>
-  `, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
+    ${buildTransactionLog(transactions)}`
+
+  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
 }
 
 function buildConcessionsReport(date: string, transactions: Transaction[]): string {
@@ -170,7 +172,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
 
-  return printShell(`Concessions Report — ${formatDate(date)}`, `
+  const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="border-bottom:2px solid #222">
@@ -190,7 +192,52 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
         </tr>
       </tfoot>
     </table>
-  `, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
+    ${buildTransactionLog(transactions)}`
+
+  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
+}
+
+function buildTransactionLog(transactions: Transaction[]): string {
+  if (transactions.length === 0) return ''
+
+  const rows = transactions.map((tx) => {
+    const time = new Date(tx.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    const summary = tx.items
+      .map((i) => `${i.quantity}× ${i.kind === 'ticket' ? i.ticketLabel : i.name}`)
+      .join(', ')
+    const isCash = tx.payment_method === 'cash'
+    const isCard = tx.payment_method === 'card'
+    const methodLabel = isCash ? '💵 Cash' : isCard ? '💳 Card' : '—'
+    const methodStyle = isCash
+      ? 'background:#fef3c7;color:#92400e'
+      : isCard
+      ? 'background:#dbeafe;color:#1e3a8a'
+      : 'background:#f5f5f5;color:#666'
+
+    return `
+      <tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:6px 12px;color:#555;white-space:nowrap;font-variant-numeric:tabular-nums">${time}</td>
+        <td style="padding:6px 12px;color:#333;font-size:12px">${summary}</td>
+        <td style="padding:6px 12px;white-space:nowrap">
+          <span style="${methodStyle};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600">${methodLabel}</span>
+        </td>
+        <td style="padding:6px 12px;text-align:right;font-weight:600;white-space:nowrap">${formatPrice(tx.total)}</td>
+      </tr>`
+  }).join('')
+
+  return `
+    <h2 style="font-size:14px;font-weight:700;margin:32px 0 12px;padding-top:24px;border-top:2px solid #e5e5e5">Transaction Log</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="border-bottom:2px solid #222">
+          <th style="padding:8px 12px;text-align:left;font-weight:600">Time</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600">Items</th>
+          <th style="padding:8px 12px;text-align:left;font-weight:600">Method</th>
+          <th style="padding:8px 12px;text-align:right;font-weight:600">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`
 }
 
 function formatDate(dateStr: string): string {
