@@ -9,6 +9,7 @@ interface Transaction {
   created_at: string
   items: BasketItem[]
   total: number
+  payment_method?: string
 }
 
 interface Props {
@@ -91,6 +92,9 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
       </tr>`
   }).join('<tr><td colspan="4" style="padding:4px"></td></tr>')
 
+  const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
+  const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
+
   return printShell(`Tickets Report — ${formatDate(date)}`, `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
@@ -111,7 +115,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
         </tr>
       </tfoot>
     </table>
-  `, grandTotal, grandQty, transactions.length)
+  `, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
 }
 
 function buildConcessionsReport(date: string, transactions: Transaction[]): string {
@@ -163,6 +167,9 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
     ? '<tr><td colspan="4" style="padding:20px;text-align:center;color:#999">No concession sales for this date</td></tr>'
     : ''
 
+  const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
+  const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
+
   return printShell(`Concessions Report — ${formatDate(date)}`, `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
@@ -183,7 +190,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
         </tr>
       </tfoot>
     </table>
-  `, grandTotal, grandQty, transactions.length)
+  `, grandTotal, grandQty, transactions.length, cashTotal, cardTotal)
 }
 
 function formatDate(dateStr: string): string {
@@ -191,7 +198,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number): string {
+function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number): string {
   const now = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   return `<!DOCTYPE html>
 <html>
@@ -203,10 +210,11 @@ function printShell(title: string, tableHtml: string, total: number, qty: number
     body { font-family: -apple-system, sans-serif; color: #111; padding: 32px; font-size: 13px; }
     h1 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
     .meta { color: #666; font-size: 12px; margin-bottom: 24px; display: flex; gap: 16px; flex-wrap: wrap; }
-    .summary { display: flex; gap: 24px; margin-bottom: 24px; padding: 12px 16px; background: #f5f5f5; border-radius: 6px; }
+    .summary { display: flex; gap: 24px; margin-bottom: 24px; padding: 12px 16px; background: #f5f5f5; border-radius: 6px; flex-wrap: wrap; }
     .summary-item { }
     .summary-item .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
     .summary-item .value { font-size: 18px; font-weight: 700; }
+    .summary-divider { width: 1px; background: #ddd; align-self: stretch; }
     table { width: 100%; border-collapse: collapse; }
     @media print {
       body { padding: 16px; }
@@ -225,6 +233,16 @@ function printShell(title: string, tableHtml: string, total: number, qty: number
       <div class="label">Total Revenue</div>
       <div class="value">${formatPrice(total)}</div>
     </div>
+    <div class="summary-divider"></div>
+    <div class="summary-item">
+      <div class="label">💵 Cash</div>
+      <div class="value">${formatPrice(cashTotal)}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">💳 Card</div>
+      <div class="value">${formatPrice(cardTotal)}</div>
+    </div>
+    <div class="summary-divider"></div>
     <div class="summary-item">
       <div class="label">Items Sold</div>
       <div class="value">${qty}</div>
@@ -252,7 +270,7 @@ export function ReportModal({ onClose }: Props) {
 
     const { data } = await supabase
       .from('transactions')
-      .select('id, created_at, items, total')
+      .select('id, created_at, items, total, payment_method')
       .eq('cinema_id', syncCode)
       .gte('created_at', dayStart)
       .lte('created_at', dayEnd)
