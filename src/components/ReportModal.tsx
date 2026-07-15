@@ -95,7 +95,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
-  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method))
+  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method) || t.payment_method === 'split')
   const splitTotal = splitTxs.reduce((s, t) => s + t.total, 0)
   const splitCash = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.cash ?? 0), 0)
   const splitCard = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.card ?? 0), 0)
@@ -177,7 +177,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
-  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method))
+  const splitTxs = transactions.filter((t) => parseSplit(t.payment_method) || t.payment_method === 'split')
   const splitTotal = splitTxs.reduce((s, t) => s + t.total, 0)
   const splitCash = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.cash ?? 0), 0)
   const splitCard = splitTxs.reduce((s, t) => s + (parseSplit(t.payment_method)?.card ?? 0), 0)
@@ -225,16 +225,17 @@ function buildTransactionLog(transactions: Transaction[]): string {
     const isCash = tx.payment_method === 'cash'
     const isCard = tx.payment_method === 'card'
     const splitAmounts = parseSplit(tx.payment_method)
+    const isSplit = splitAmounts !== null || tx.payment_method === 'split'
     const methodLabel = isRefund
       ? '↩ Refund'
       : isCash ? '💵 Cash'
       : isCard ? '💳 Card'
-      : splitAmounts ? '⇌ Split' : '—'
+      : isSplit ? '⇌ Split' : '—'
     const methodStyle = isRefund
       ? 'background:#fee2e2;color:#991b1b'
       : isCash ? 'background:#fef3c7;color:#92400e'
       : isCard ? 'background:#dbeafe;color:#1e3a8a'
-      : splitAmounts ? 'background:#f3e8ff;color:#6b21a8'
+      : isSplit ? 'background:#f3e8ff;color:#6b21a8'
       : 'background:#f5f5f5;color:#666'
     const totalStyle = isRefund ? 'color:#dc2626;font-weight:600' : 'font-weight:600'
     const splitDetail = splitAmounts
