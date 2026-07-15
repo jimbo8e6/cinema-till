@@ -95,6 +95,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
+  const splitTotal = transactions.filter((t) => t.payment_method === 'split').reduce((s, t) => s + t.total, 0)
 
   const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -118,7 +119,7 @@ function buildTicketsReport(date: string, transactions: Transaction[]): string {
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal)
+  return printShell(`Tickets Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal)
 }
 
 function buildConcessionsReport(date: string, transactions: Transaction[]): string {
@@ -173,6 +174,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
   const refundTotal = transactions.filter((t) => t.total < 0).reduce((s, t) => s + t.total, 0)
   const cashTotal = transactions.filter((t) => t.payment_method === 'cash').reduce((s, t) => s + t.total, 0)
   const cardTotal = transactions.filter((t) => t.payment_method === 'card').reduce((s, t) => s + t.total, 0)
+  const splitTotal = transactions.filter((t) => t.payment_method === 'split').reduce((s, t) => s + t.total, 0)
 
   const tableHtml = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -196,7 +198,7 @@ function buildConcessionsReport(date: string, transactions: Transaction[]): stri
     </table>
     ${buildTransactionLog(transactions)}`
 
-  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal)
+  return printShell(`Concessions Report — ${formatDate(date)}`, tableHtml, grandTotal, grandQty, transactions.length, cashTotal, cardTotal, refundTotal, splitTotal)
 }
 
 function buildTransactionLog(transactions: Transaction[]): string {
@@ -210,13 +212,16 @@ function buildTransactionLog(transactions: Transaction[]): string {
     const isRefund = tx.total < 0
     const isCash = tx.payment_method === 'cash'
     const isCard = tx.payment_method === 'card'
-    const methodLabel = isRefund ? '↩ Refund' : isCash ? '💵 Cash' : isCard ? '💳 Card' : '—'
+    const isSplit = tx.payment_method === 'split'
+    const methodLabel = isRefund ? '↩ Refund' : isCash ? '💵 Cash' : isCard ? '💳 Card' : isSplit ? '⇌ Split' : '—'
     const methodStyle = isRefund
       ? 'background:#fee2e2;color:#991b1b'
       : isCash
       ? 'background:#fef3c7;color:#92400e'
       : isCard
       ? 'background:#dbeafe;color:#1e3a8a'
+      : isSplit
+      ? 'background:#f3e8ff;color:#6b21a8'
       : 'background:#f5f5f5;color:#666'
     const totalStyle = isRefund ? 'color:#dc2626;font-weight:600' : 'font-weight:600'
 
@@ -251,7 +256,7 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number, refundTotal: number): string {
+function printShell(title: string, tableHtml: string, total: number, qty: number, txCount: number, cashTotal: number, cardTotal: number, refundTotal: number, splitTotal: number): string {
   const now = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   return `<!DOCTYPE html>
 <html>
@@ -295,6 +300,10 @@ function printShell(title: string, tableHtml: string, total: number, qty: number
       <div class="label">💳 Card</div>
       <div class="value">${formatPrice(cardTotal)}</div>
     </div>
+    ${splitTotal > 0 ? `<div class="summary-item">
+      <div class="label">⇌ Split</div>
+      <div class="value">${formatPrice(splitTotal)}</div>
+    </div>` : ''}
     ${refundTotal < 0 ? `<div class="summary-item">
       <div class="label">↩ Refunds</div>
       <div class="value" style="color:#dc2626">${formatPrice(refundTotal)}</div>

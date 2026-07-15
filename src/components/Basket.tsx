@@ -127,6 +127,116 @@ function CashModal({ total, onConfirm, onClose, processing, done }: CashModalPro
   )
 }
 
+interface SplitModalProps {
+  total: number
+  onConfirm: (method: 'split') => void
+  onClose: () => void
+  processing: boolean
+  done: boolean
+}
+
+function SplitModal({ total, onConfirm, onClose, processing, done }: SplitModalProps) {
+  const [cashPortion, setCashPortion] = useState('')
+  const [cashReceived, setCashReceived] = useState('')
+
+  const cash = parseFloat(cashPortion) || 0
+  const cardAmount = Math.round((total - cash) * 100) / 100
+  const received = parseFloat(cashReceived) || 0
+  const change = Math.round((received - cash) * 100) / 100
+
+  const validSplit = cash > 0 && cash < total
+  const sufficientCash = received >= cash
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/70 z-50 flex items-end sm:items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl">
+        <div className="p-5 border-b border-gray-700 flex items-center justify-between">
+          <h2 className="text-white font-bold text-lg">Split Payment</h2>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none">×</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Total */}
+          <div className="flex justify-between items-center bg-gray-700/50 rounded-xl px-4 py-3">
+            <span className="text-gray-400 text-sm">Total due</span>
+            <span className="text-white text-2xl font-bold">{formatPrice(total)}</span>
+          </div>
+
+          {/* Cash portion entry */}
+          <div>
+            <label className="text-gray-400 text-xs block mb-1.5">Cash amount (£)</label>
+            <input
+              type="number"
+              min="0"
+              max={total}
+              step="0.01"
+              value={cashPortion}
+              onChange={(e) => setCashPortion(e.target.value)}
+              placeholder="0.00"
+              autoFocus
+              className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white text-2xl font-bold text-right focus:outline-none focus:ring-2 focus:ring-purple-500 placeholder-gray-600"
+            />
+          </div>
+
+          {/* Card remainder */}
+          <div className="flex justify-between items-center bg-gray-700/30 rounded-xl px-4 py-3">
+            <span className="text-gray-400 text-sm">💳 Card amount</span>
+            <span className={`text-xl font-bold ${validSplit ? 'text-blue-400' : 'text-gray-600'}`}>
+              {validSplit ? formatPrice(cardAmount) : '—'}
+            </span>
+          </div>
+
+          {/* Cash received (only shown once a valid split is entered) */}
+          {validSplit && (
+            <div>
+              <label className="text-gray-400 text-xs block mb-1.5">Cash received (£)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={cashReceived}
+                onChange={(e) => setCashReceived(e.target.value)}
+                placeholder="0.00"
+                className="w-full bg-gray-700 border border-gray-600 rounded-xl px-4 py-3 text-white text-xl font-bold text-right focus:outline-none focus:ring-2 focus:ring-amber-500 placeholder-gray-600"
+              />
+            </div>
+          )}
+
+          {/* Change */}
+          {validSplit && cashReceived !== '' && (
+            <div className={`flex justify-between items-center rounded-xl px-4 py-3 transition-colors ${
+              sufficientCash ? 'bg-green-900/40 border border-green-700' : 'bg-red-900/40 border border-red-700'
+            }`}>
+              <span className="text-gray-400 text-sm">{sufficientCash ? 'Change to give' : 'Short by'}</span>
+              <span className={`text-xl font-bold ${sufficientCash ? 'text-green-400' : 'text-red-400'}`}>
+                {formatPrice(Math.abs(change))}
+              </span>
+            </div>
+          )}
+
+          {/* Confirm */}
+          <button
+            onClick={() => onConfirm('split')}
+            disabled={!validSplit || (cashReceived !== '' && !sufficientCash) || processing || done}
+            className={`w-full font-bold py-4 rounded-xl text-white transition-all text-base ${
+              done
+                ? 'bg-green-600'
+                : validSplit && (cashReceived === '' || sufficientCash)
+                ? 'bg-purple-600 hover:bg-purple-500 active:bg-purple-400'
+                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {done ? '✓ Payment Complete' : processing ? 'Processing...' : 'Confirm Split Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   mobileOpen: boolean
   onMobileClose: () => void
@@ -138,8 +248,9 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
   const [processing, setProcessing] = useState(false)
   const [done, setDone] = useState(false)
   const [cashModalOpen, setCashModalOpen] = useState(false)
+  const [splitModalOpen, setSplitModalOpen] = useState(false)
 
-  const processPayment = async (method: 'card' | 'cash') => {
+  const processPayment = async (method: 'card' | 'cash' | 'split') => {
     if (!items.length || !syncCode) return
     setProcessing(true)
     await supabase.from('transactions').insert({
@@ -152,6 +263,7 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
     setProcessing(false)
     setDone(true)
     setCashModalOpen(false)
+    setSplitModalOpen(false)
     setTimeout(() => {
       setDone(false)
       onMobileClose()
@@ -221,20 +333,29 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
             ✓ Payment Complete
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setCashModalOpen(true)}
+                disabled={!hasItems || processing}
+                className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-4 rounded-xl transition-colors text-sm"
+              >
+                💵 Cash
+              </button>
+              <button
+                onClick={() => processPayment('card')}
+                disabled={!hasItems || processing}
+                className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-4 rounded-xl transition-colors text-sm"
+              >
+                {processing ? 'Processing...' : '💳 Card'}
+              </button>
+            </div>
             <button
-              onClick={() => setCashModalOpen(true)}
+              onClick={() => setSplitModalOpen(true)}
               disabled={!hasItems || processing}
-              className="bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-4 rounded-xl transition-colors text-sm"
+              className="w-full bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-3 rounded-xl transition-colors text-sm"
             >
-              💵 Cash
-            </button>
-            <button
-              onClick={() => processPayment('card')}
-              disabled={!hasItems || processing}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-4 rounded-xl transition-colors text-sm"
-            >
-              {processing ? 'Processing...' : '💳 Card'}
+              ⇌ Split Cash + Card
             </button>
           </div>
         )}
@@ -267,6 +388,16 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
           total={total()}
           onConfirm={processPayment}
           onClose={() => setCashModalOpen(false)}
+          processing={processing}
+          done={done}
+        />
+      )}
+
+      {splitModalOpen && (
+        <SplitModal
+          total={total()}
+          onConfirm={processPayment}
+          onClose={() => setSplitModalOpen(false)}
           processing={processing}
           done={done}
         />
