@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useBasketStore, useScheduleStore } from '../store'
 import { minutesToTime, formatPrice } from '../lib/utils'
 import { SeatMapModal } from './SeatMapModal'
+import { SeatPlanViewer } from './SeatPlanViewer'
 import type { Film, Show, BasketTicket } from '../types'
 
 interface Props {
@@ -35,6 +36,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
 
   // Phase 2: seat allocation (only when hasSeatPlan)
   const [showSeatMap, setShowSeatMap] = useState(false)
+  const [showSeatViewer, setShowSeatViewer] = useState(false)
 
   const basketSeatsForShow = items
     .filter((i): i is BasketTicket => i.kind === 'ticket' && i.showId === show.id && !!(i as BasketTicket).seatId)
@@ -155,14 +157,22 @@ export function TicketSelector({ show, film, onClose }: Props) {
             </div>
           )}
 
-          <div className="p-4 border-t border-gray-700 flex items-center gap-3">
+          <div className="p-4 border-t border-gray-700 flex items-center gap-2">
             <span className="text-gray-400 text-sm flex-1">
               {hasItems ? `Total: ${formatPrice(total)}` : 'Select tickets'}
             </span>
+            {hasSeatPlan && (
+              <button
+                onClick={() => setShowSeatViewer(true)}
+                className="text-gray-400 hover:text-gray-200 text-sm px-3 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+              >
+                Seat Plan
+              </button>
+            )}
             <button
               onClick={handleAddToBasket}
               disabled={!hasItems}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors"
             >
               {hasSeatPlan ? 'Choose Seats →' : 'Add to Basket'}
             </button>
@@ -181,6 +191,16 @@ export function TicketSelector({ show, film, onClose }: Props) {
           initialSelection={[]}
           onConfirm={handleSeatConfirm}
           onClose={() => setShowSeatMap(false)}
+        />
+      )}
+
+      {showSeatViewer && hasSeatPlan && (
+        <SeatPlanViewer
+          showId={show.id}
+          screenNumber={show.screen}
+          filmTitle={film.title}
+          seatPlan={seatPlan}
+          onClose={() => setShowSeatViewer(false)}
         />
       )}
     </>
