@@ -2,19 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettingsStore } from '../store'
 import { formatPrice } from '../lib/utils'
-import type { SeatPlan, SeatRow, BasketTicket } from '../types'
+import type { SeatPlan, BasketTicket } from '../types'
 
-// Derive all seat IDs from a plan row, in order
-function rowSeats(row: SeatRow): { id: string; type: 'standard' | 'dda' | 'unavailable' }[] {
-  const seats: { id: string; type: 'standard' | 'dda' | 'unavailable' }[] = []
-  let counter = 0
-  for (const cell of row.cells) {
-    if (cell === 'gap') continue
-    counter++
-    seats.push({ id: `${row.label}${counter}`, type: cell as 'standard' | 'dda' | 'unavailable' })
-  }
-  return seats
-}
 
 interface Props {
   showId: string
