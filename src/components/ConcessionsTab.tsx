@@ -15,6 +15,7 @@ export function ConcessionsTab() {
   const [managementMode, setManagementMode] = useState(false)
   const [editingItem, setEditingItem] = useState<Partial<ConcessionItem> | null>(null)
   const [saving, setSaving] = useState(false)
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
 
   const availableItems = managementMode ? items : items.filter((i) => i.is_available)
   const grouped = CATEGORIES.reduce<Record<string, ConcessionItem[]>>((acc, cat) => {
@@ -107,7 +108,7 @@ export function ConcessionsTab() {
         </div>
       </div>
 
-      {Object.keys(grouped).length === 0 && (
+      {Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-gray-500 gap-2">
           <span className="text-3xl">🍿</span>
           <p className="text-sm">No concession items yet</p>
@@ -121,65 +122,87 @@ export function ConcessionsTab() {
             Add your first item
           </button>
         </div>
-      )}
-
-      {Object.entries(grouped).map(([category, catItems]) => (
-        <div key={category} className="mb-6">
-          <h3 className="text-gray-500 text-xs uppercase tracking-wider mb-2 font-medium">
-            {category}
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {catItems.map((item) => (
-              <div
-                key={item.id}
-                className={`relative bg-gray-800 border rounded-xl p-3 transition-all ${
-                  item.is_available
-                    ? 'border-gray-700 hover:border-blue-500 cursor-pointer active:bg-gray-700'
-                    : 'border-gray-800 opacity-50'
+      ) : (
+        <>
+          {/* Category tabs */}
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
+            {['All', ...Object.keys(grouped)].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                  selectedCategory === cat
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-400 hover:text-gray-200'
                 }`}
-                onClick={() => {
-                  if (managementMode) {
-                    setEditingItem({ ...item })
-                  } else if (item.is_available) {
-                    addConcession(item, 1)
-                  }
-                }}
               >
-                <p className="text-white text-sm font-medium leading-tight">{item.name}</p>
-                <p className="text-blue-400 text-sm font-semibold mt-1">
-                  {formatPrice(item.price)}
-                </p>
-                {managementMode && (
-                  <div className="flex gap-1 mt-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleAvailable(item)
-                      }}
-                      className={`text-xs px-2 py-0.5 rounded ${
-                        item.is_available
-                          ? 'bg-green-900/50 text-green-400'
-                          : 'bg-gray-700 text-gray-500'
-                      }`}
-                    >
-                      {item.is_available ? 'Available' : 'Hidden'}
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteItem(item.id)
-                      }}
-                      className="text-xs px-2 py-0.5 rounded bg-red-900/40 text-red-400"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-              </div>
+                {cat}
+              </button>
             ))}
           </div>
-        </div>
-      ))}
+
+          {/* Items */}
+          {(selectedCategory === 'All' ? Object.entries(grouped) : [[selectedCategory, grouped[selectedCategory]] as [string, ConcessionItem[]]]).map(([category, catItems]) => (
+            <div key={category} className="mb-6">
+              {selectedCategory === 'All' && (
+                <h3 className="text-gray-500 text-xs uppercase tracking-wider mb-2 font-medium">
+                  {category}
+                </h3>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {catItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className={`relative bg-gray-800 border rounded-xl p-3 transition-all ${
+                      item.is_available
+                        ? 'border-gray-700 hover:border-blue-500 cursor-pointer active:bg-gray-700'
+                        : 'border-gray-800 opacity-50'
+                    }`}
+                    onClick={() => {
+                      if (managementMode) {
+                        setEditingItem({ ...item })
+                      } else if (item.is_available) {
+                        addConcession(item, 1)
+                      }
+                    }}
+                  >
+                    <p className="text-white text-sm font-medium leading-tight">{item.name}</p>
+                    <p className="text-blue-400 text-sm font-semibold mt-1">
+                      {formatPrice(item.price)}
+                    </p>
+                    {managementMode && (
+                      <div className="flex gap-1 mt-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleAvailable(item)
+                          }}
+                          className={`text-xs px-2 py-0.5 rounded ${
+                            item.is_available
+                              ? 'bg-green-900/50 text-green-400'
+                              : 'bg-gray-700 text-gray-500'
+                          }`}
+                        >
+                          {item.is_available ? 'Available' : 'Hidden'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            deleteItem(item.id)
+                          }}
+                          className="text-xs px-2 py-0.5 rounded bg-red-900/40 text-red-400"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
 
       {/* Edit/Add modal */}
       {editingItem && (
