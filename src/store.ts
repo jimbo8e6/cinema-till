@@ -65,6 +65,7 @@ interface BasketState {
   addTicket: (show: Show, film: Film, ticketTypeId: string, ticketLabel: string, price: number, qty: number, seatId?: string) => void
   addConcession: (item: ConcessionItem, qty: number) => void
   removeItem: (index: number) => void
+  removeItems: (indices: number[]) => void
   updateQty: (index: number, qty: number) => void
   clear: () => void
   total: () => number
@@ -135,6 +136,7 @@ export const useBasketStore = create<BasketState>((set, get) => ({
   },
 
   removeItem: (index) => set({ items: get().items.filter((_, i) => i !== index) }),
+  removeItems: (indices) => { const s = new Set(indices); set({ items: get().items.filter((_, i) => !s.has(i)) }) },
 
   updateQty: (index, qty) => {
     if (qty <= 0) {

@@ -33,7 +33,7 @@ export interface PriceCard {
   ticketTypeIds: string[]
 }
 
-export type SeatCell = 'gap' | 'standard' | 'dda' | 'unavailable'
+export type SeatCell = 'gap' | 'standard' | 'dda' | 'companion' | 'unavailable'
 export interface SeatRow { label: string; cells: SeatCell[] }
 export type SeatPlan = SeatRow[]
 

@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettingsStore } from '../store'
-import { formatPrice } from '../lib/utils'
+import { formatPrice, getSeatIdsByType } from '../lib/utils'
 import type { SeatPlan, BasketTicket } from '../types'
-
 
 interface Props {
   showId: string
   screenNumber: number
   seatPlan: SeatPlan
   ticketType: { id: string; name: string; price: number }
-  basketSeatsForShow: string[]   // seats already in the basket for this show (any type)
-  initialSelection: string[]     // seats already chosen for this ticket type in the current session
+  basketSeatsForShow: string[]  // seats in basket + other session types for this show
+  initialSelection: string[]    // seats already chosen for this ticket type in the current session
   onConfirm: (seats: string[]) => void
   onClose: () => void
 }
@@ -30,6 +29,10 @@ export function SeatMapModal({
   const [takenSeats, setTakenSeats] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<Set<string>>(new Set(initialSelection))
   const [loading, setLoading] = useState(true)
+  const [companionWarning, setCompanionWarning] = useState(false)
+
+  const ddaSeatIds = getSeatIdsByType(seatPlan, ['dda'])
+  const companionSeatIds = getSeatIdsByType(seatPlan, ['companion'])
 
   useEffect(() => {
     supabase
@@ -54,6 +57,17 @@ export function SeatMapModal({
   }, [showId, syncCode])
 
   const toggle = (id: string) => {
+    if (companionSeatIds.has(id)) {
+      // Companion seats require a DDA seat to be claimed in the basket or current selection
+      const hasDDA =
+        basketSeatsForShow.some((s) => ddaSeatIds.has(s)) ||
+        Array.from(selected).some((s) => ddaSeatIds.has(s))
+      if (!hasDDA) {
+        setCompanionWarning(true)
+        return
+      }
+    }
+    setCompanionWarning(false)
     setSelected((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
@@ -63,7 +77,6 @@ export function SeatMapModal({
   }
 
   const basketSet = new Set(basketSeatsForShow.filter((s) => !initialSelection.includes(s)))
-
   const totalPrice = selected.size * ticketType.price
 
   return (
@@ -115,19 +128,22 @@ export function SeatMapModal({
                         const isInBasket = basketSet.has(seatId)
                         const isSelected = selected.has(seatId)
                         const isDDA = cell === 'dda'
+                        const isCompanion = cell === 'companion'
                         const isDisabled = isUnavailable || isTaken || isInBasket
 
-                        let cls = 'w-7 h-7 rounded text-xs flex items-center justify-center flex-shrink-0 transition-colors '
+                        let cls = 'w-7 h-7 rounded text-xs flex items-center justify-center flex-shrink-0 transition-colors font-medium '
                         if (isSelected) {
                           cls += 'bg-blue-500 text-white ring-2 ring-blue-300'
                         } else if (isTaken) {
                           cls += 'bg-red-900/60 text-red-600 cursor-not-allowed'
                         } else if (isInBasket) {
-                          cls += 'bg-amber-800/60 text-amber-500 cursor-not-allowed'
+                          cls += 'bg-gray-500/40 text-gray-500 cursor-not-allowed'
                         } else if (isUnavailable) {
                           cls += 'bg-gray-900 text-gray-700 cursor-not-allowed'
                         } else if (isDDA) {
                           cls += 'bg-purple-800 hover:bg-purple-600 text-purple-200 cursor-pointer'
+                        } else if (isCompanion) {
+                          cls += 'bg-amber-700 hover:bg-amber-500 text-amber-100 cursor-pointer'
                         } else {
                           cls += 'bg-gray-600 hover:bg-gray-500 text-gray-300 cursor-pointer'
                         }
@@ -140,7 +156,7 @@ export function SeatMapModal({
                             onClick={() => toggle(seatId)}
                             title={seatId}
                           >
-                            {isDDA ? '♿' : isSelected ? '✓' : ''}
+                            {isSelected ? '✓' : isDDA ? '♿' : isCompanion ? 'C' : ''}
                           </button>
                         )
                       })}
@@ -149,22 +165,29 @@ export function SeatMapModal({
                 })}
               </div>
 
+              {/* Companion warning */}
+              {companionWarning && (
+                <div className="mt-4 mx-auto max-w-xs bg-amber-900/40 border border-amber-700 rounded-lg px-3 py-2 text-amber-300 text-xs text-center">
+                  Companion seats can only be sold alongside a wheelchair space.
+                </div>
+              )}
+
               {/* Legend */}
               <div className="flex flex-wrap gap-3 mt-5 justify-center text-xs text-gray-400">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-gray-600 inline-block" /> Available
+                  <span className="w-4 h-4 rounded bg-gray-600 inline-block" /> Standard
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-purple-800 inline-block" /> Wheelchair ♿
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-4 h-4 rounded bg-amber-700 inline-block" /> Companion
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded bg-blue-500 inline-block" /> Selected
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded bg-red-900/60 inline-block" /> Taken
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-amber-800/60 inline-block" /> In basket
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded bg-purple-800 inline-block" /> Accessible
                 </span>
               </div>
             </>

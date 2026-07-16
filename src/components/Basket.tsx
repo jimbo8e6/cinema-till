@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import { useBasketStore, useSettingsStore } from '../store'
+import { useBasketStore, useSettingsStore, useScheduleStore } from '../store'
 import { supabase } from '../lib/supabase'
-import { minutesToTime, formatPrice } from '../lib/utils'
-import type { BasketItem } from '../types'
+import { minutesToTime, formatPrice, getSeatIdsByType } from '../lib/utils'
+import type { BasketItem, BasketTicket } from '../types'
 
 function itemLabel(item: BasketItem): string {
   if (item.kind === 'ticket') {
@@ -244,8 +244,47 @@ interface Props {
 }
 
 export function Basket({ mobileOpen, onMobileClose }: Props) {
-  const { items, removeItem, updateQty, clear, total } = useBasketStore()
+  const { items, removeItem, removeItems, updateQty, clear, total } = useBasketStore()
   const syncCode = useSettingsStore((s) => s.syncCode)
+  const seatPlans = useScheduleStore((s) => s.seatPlans)
+
+  // Remove a basket item, with a guard: if it's the last DDA seat for a show
+  // and companion seats remain, confirm before auto-removing them too.
+  const handleRemove = (idx: number) => {
+    const item = items[idx]
+    if (item.kind !== 'ticket' || !item.seatId) { removeItem(idx); return }
+
+    const plan = seatPlans[String(item.screenNumber)]
+    if (!plan) { removeItem(idx); return }
+
+    const ddaIds = getSeatIdsByType(plan, ['dda'])
+    const companionIds = getSeatIdsByType(plan, ['companion'])
+
+    if (!ddaIds.has(item.seatId)) { removeItem(idx); return }
+
+    // Seats remaining in basket for this show after this removal
+    const remaining = items.filter((i, i2) =>
+      i2 !== idx && i.kind === 'ticket' && (i as BasketTicket).showId === item.showId && !!(i as BasketTicket).seatId
+    ) as BasketTicket[]
+
+    const companionIndices = items.reduce<number[]>((acc, i, i2) => {
+      if (i2 !== idx && i.kind === 'ticket' && (i as BasketTicket).showId === item.showId && (i as BasketTicket).seatId && companionIds.has((i as BasketTicket).seatId!)) acc.push(i2)
+      return acc
+    }, [])
+
+    const remainingDDA = remaining.filter((i) => ddaIds.has(i.seatId!))
+
+    if (companionIndices.length > 0 && remainingDDA.length === 0) {
+      const plural = companionIndices.length !== 1
+      const ok = window.confirm(
+        `Removing this wheelchair ticket will also remove the ${plural ? `${companionIndices.length} companion seats` : 'companion seat'}. Continue?`
+      )
+      if (!ok) return
+      removeItems([idx, ...companionIndices])
+    } else {
+      removeItem(idx)
+    }
+  }
   const [processing, setProcessing] = useState(false)
   const [done, setDone] = useState(false)
   const [cashModalOpen, setCashModalOpen] = useState(false)
@@ -309,9 +348,9 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {item.kind === 'ticket' && item.seatId ? (
-                // Seat-allocated: just remove
+                // Seat-allocated: just remove (with DDA companion guard)
                 <button
-                  onClick={() => removeItem(idx)}
+                  onClick={() => handleRemove(idx)}
                   className="w-6 h-6 rounded bg-gray-800 text-gray-500 hover:text-red-400 text-sm flex items-center justify-center"
                 >×</button>
               ) : (
@@ -326,7 +365,7 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
                     className="w-6 h-6 rounded bg-gray-700 text-white text-sm flex items-center justify-center hover:bg-gray-600"
                   >+</button>
                   <button
-                    onClick={() => removeItem(idx)}
+                    onClick={() => handleRemove(idx)}
                     className="w-6 h-6 rounded bg-gray-800 text-gray-500 hover:text-red-400 text-sm flex items-center justify-center ml-1"
                   >×</button>
                 </>
