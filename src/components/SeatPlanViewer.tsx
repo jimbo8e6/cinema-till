@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettingsStore } from '../store'
-import { getSeatIdsByType } from '../lib/utils'
+
 import type { SeatPlan, BasketTicket } from '../types'
 
 interface Props {
@@ -17,8 +17,6 @@ export function SeatPlanViewer({ showId, screenNumber, filmTitle, seatPlan, onCl
   const [takenSeats, setTakenSeats] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
-  const ddaSeatIds = getSeatIdsByType(seatPlan, ['dda'])
-  const companionSeatIds = getSeatIdsByType(seatPlan, ['companion'])
   const maxCols = seatPlan.reduce((m, row) => Math.max(m, row.cells.length), 0)
 
   const totalSeats = seatPlan.reduce(
