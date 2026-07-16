@@ -20,15 +20,20 @@ export function useSchedule() {
       return
     }
     const schedule = data.data as ScheduleData
-    console.log('[schedule] seatPlans raw:', schedule.seatPlans)
-    console.log('[schedule] screenCapacities raw:', schedule.screenCapacities)
+    // Scheduler stores seatPlans as {cols, rows, screen} objects — extract just the rows array
+    const rawPlans = schedule.seatPlans ?? {}
+    const seatPlans: Record<string, import('../types').SeatPlan> = {}
+    for (const [key, val] of Object.entries(rawPlans)) {
+      const v = val as any
+      seatPlans[key] = Array.isArray(v) ? v : (v?.rows ?? [])
+    }
     setSchedule(
       schedule.films ?? [],
       schedule.shows ?? [],
       schedule.ticketTypes ?? [],
       schedule.priceCards ?? [],
       schedule.screenCapacities ?? {},
-      schedule.seatPlans ?? {},
+      seatPlans,
     )
     setLoading(false)
   }, [syncCode])
