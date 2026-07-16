@@ -6,7 +6,8 @@ import type { BasketItem } from '../types'
 
 function itemLabel(item: BasketItem): string {
   if (item.kind === 'ticket') {
-    return `${item.filmTitle} ${minutesToTime(item.startMinute)} · ${item.ticketLabel}`
+    const seat = item.seatId ? ` · Seat ${item.seatId}` : ''
+    return `${item.filmTitle} ${minutesToTime(item.startMinute)} · ${item.ticketLabel}${seat}`
   }
   return item.name
 }
@@ -307,19 +308,29 @@ export function Basket({ mobileOpen, onMobileClose }: Props) {
               <p className="text-blue-400 text-xs mt-0.5">{formatPrice(item.price)} each</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => updateQty(idx, item.quantity - 1)}
-                className="w-6 h-6 rounded bg-gray-700 text-white text-sm flex items-center justify-center hover:bg-gray-600"
-              >−</button>
-              <span className="text-white text-sm w-4 text-center">{item.quantity}</span>
-              <button
-                onClick={() => updateQty(idx, item.quantity + 1)}
-                className="w-6 h-6 rounded bg-gray-700 text-white text-sm flex items-center justify-center hover:bg-gray-600"
-              >+</button>
-              <button
-                onClick={() => removeItem(idx)}
-                className="w-6 h-6 rounded bg-gray-800 text-gray-500 hover:text-red-400 text-sm flex items-center justify-center ml-1"
-              >×</button>
+              {item.kind === 'ticket' && item.seatId ? (
+                // Seat-allocated: just remove
+                <button
+                  onClick={() => removeItem(idx)}
+                  className="w-6 h-6 rounded bg-gray-800 text-gray-500 hover:text-red-400 text-sm flex items-center justify-center"
+                >×</button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => updateQty(idx, item.quantity - 1)}
+                    className="w-6 h-6 rounded bg-gray-700 text-white text-sm flex items-center justify-center hover:bg-gray-600"
+                  >−</button>
+                  <span className="text-white text-sm w-4 text-center">{item.quantity}</span>
+                  <button
+                    onClick={() => updateQty(idx, item.quantity + 1)}
+                    className="w-6 h-6 rounded bg-gray-700 text-white text-sm flex items-center justify-center hover:bg-gray-600"
+                  >+</button>
+                  <button
+                    onClick={() => removeItem(idx)}
+                    className="w-6 h-6 rounded bg-gray-800 text-gray-500 hover:text-red-400 text-sm flex items-center justify-center ml-1"
+                  >×</button>
+                </>
+              )}
             </div>
           </div>
         ))}

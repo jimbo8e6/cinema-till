@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { BasketItem, BasketTicket, ConcessionItem, Film, PriceCard, SchedulerTicketType, Show } from './types'
+import type { BasketItem, BasketTicket, ConcessionItem, Film, PriceCard, SchedulerTicketType, SeatPlan, Show } from './types'
 
 interface SettingsState {
   syncCode: string
@@ -23,9 +23,10 @@ interface ScheduleState {
   ticketTypes: SchedulerTicketType[]
   priceCards: PriceCard[]
   screenCapacities: Record<string, number>
+  seatPlans: Record<string, SeatPlan>
   loading: boolean
   error: string | null
-  setSchedule: (films: Film[], shows: Show[], ticketTypes: SchedulerTicketType[], priceCards: PriceCard[], screenCapacities: Record<string, number>) => void
+  setSchedule: (films: Film[], shows: Show[], ticketTypes: SchedulerTicketType[], priceCards: PriceCard[], screenCapacities: Record<string, number>, seatPlans: Record<string, SeatPlan>) => void
   setLoading: (v: boolean) => void
   setError: (msg: string | null) => void
 }
@@ -36,10 +37,11 @@ export const useScheduleStore = create<ScheduleState>((set) => ({
   ticketTypes: [],
   priceCards: [],
   screenCapacities: {},
+  seatPlans: {},
   loading: false,
   error: null,
-  setSchedule: (films, shows, ticketTypes, priceCards, screenCapacities) =>
-    set({ films, shows, ticketTypes, priceCards, screenCapacities, error: null }),
+  setSchedule: (films, shows, ticketTypes, priceCards, screenCapacities, seatPlans) =>
+    set({ films, shows, ticketTypes, priceCards, screenCapacities, seatPlans, error: null }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error, loading: false }),
 }))
@@ -60,7 +62,7 @@ export const useConcessionStore = create<ConcessionState>((set) => ({
 
 interface BasketState {
   items: BasketItem[]
-  addTicket: (show: Show, film: Film, ticketTypeId: string, ticketLabel: string, price: number, qty: number) => void
+  addTicket: (show: Show, film: Film, ticketTypeId: string, ticketLabel: string, price: number, qty: number, seatId?: string) => void
   addConcession: (item: ConcessionItem, qty: number) => void
   removeItem: (index: number) => void
   updateQty: (index: number, qty: number) => void
@@ -71,33 +73,34 @@ interface BasketState {
 export const useBasketStore = create<BasketState>((set, get) => ({
   items: [],
 
-  addTicket: (show, film, ticketTypeId, ticketLabel, price, qty) => {
+  addTicket: (show, film, ticketTypeId, ticketLabel, price, qty, seatId) => {
+    // Seat-allocated tickets are always individual items (qty 1 each, keyed by seatId)
+    if (seatId) {
+      const alreadyInBasket = get().items.some(
+        (i) => i.kind === 'ticket' && i.showId === show.id && (i as BasketTicket).seatId === seatId
+      )
+      if (alreadyInBasket) return
+      set({
+        items: [
+          ...get().items,
+          { kind: 'ticket', showId: show.id, filmTitle: film.title, screenNumber: show.screen, startMinute: show.startMinute, date: show.date, ticketTypeId, ticketLabel, price, quantity: 1, seatId },
+        ],
+      })
+      return
+    }
+    // Standard quantity-based tickets — merge by ticket type
     const existingIdx = get().items.findIndex(
-      (i) => i.kind === 'ticket' && i.showId === show.id && i.ticketTypeId === ticketTypeId
+      (i) => i.kind === 'ticket' && i.showId === show.id && i.ticketTypeId === ticketTypeId && !(i as BasketTicket).seatId
     )
     if (existingIdx >= 0) {
       const updated = [...get().items]
-      updated[existingIdx] = {
-        ...updated[existingIdx],
-        quantity: (updated[existingIdx] as BasketTicket).quantity + qty,
-      }
+      updated[existingIdx] = { ...updated[existingIdx], quantity: (updated[existingIdx] as BasketTicket).quantity + qty }
       set({ items: updated })
     } else {
       set({
         items: [
           ...get().items,
-          {
-            kind: 'ticket',
-            showId: show.id,
-            filmTitle: film.title,
-            screenNumber: show.screen,
-            startMinute: show.startMinute,
-            date: show.date,
-            ticketTypeId,
-            ticketLabel,
-            price,
-            quantity: qty,
-          },
+          { kind: 'ticket', showId: show.id, filmTitle: film.title, screenNumber: show.screen, startMinute: show.startMinute, date: show.date, ticketTypeId, ticketLabel, price, quantity: qty },
         ],
       })
     }

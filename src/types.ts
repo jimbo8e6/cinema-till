@@ -33,12 +33,17 @@ export interface PriceCard {
   ticketTypeIds: string[]
 }
 
+export type SeatCell = 'gap' | 'standard' | 'dda' | 'unavailable'
+export interface SeatRow { label: string; cells: SeatCell[] }
+export type SeatPlan = SeatRow[]
+
 export interface ScheduleData {
   shows: Show[]
   films: Film[]
   ticketTypes?: SchedulerTicketType[]
   priceCards?: PriceCard[]
   screenCapacities?: Record<string, number>
+  seatPlans?: Record<string, SeatPlan>
 }
 
 // Concession items (from concession_items table)
@@ -63,6 +68,7 @@ export interface BasketTicket {
   ticketLabel: string
   price: number
   quantity: number
+  seatId?: string
 }
 
 export interface BasketConcession {

@@ -26,6 +26,7 @@ export function useSchedule() {
       schedule.ticketTypes ?? [],
       schedule.priceCards ?? [],
       schedule.screenCapacities ?? {},
+      schedule.seatPlans ?? {},
     )
     setLoading(false)
   }, [syncCode])
