@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useBasketStore, useScheduleStore } from '../store'
 import { minutesToTime, formatPrice } from '../lib/utils'
 import { SeatMapModal } from './SeatMapModal'
-import type { Film, Show, SchedulerTicketType, BasketTicket } from '../types'
+import type { Film, Show, BasketTicket } from '../types'
 
 interface Props {
   show: Show
@@ -34,9 +34,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
   const pageTypes = resolvedTypes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   // Phase 2: seat allocation (only when hasSeatPlan)
-  const [seatQueue, setSeatQueue] = useState<SchedulerTicketType[]>([])
-  const [currentSeatType, setCurrentSeatType] = useState<SchedulerTicketType | null>(null)
-  const [selectedSeatsByType, setSelectedSeatsByType] = useState<Record<string, string[]>>({})
+  const [showSeatMap, setShowSeatMap] = useState(false)
 
   const basketSeatsForShow = items
     .filter((i): i is BasketTicket => i.kind === 'ticket' && i.showId === show.id && !!(i as BasketTicket).seatId)
@@ -48,14 +46,12 @@ export function TicketSelector({ show, film, onClose }: Props) {
   const adjust = (id: string, delta: number) =>
     setQuantities((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + delta) }))
 
+  const totalQty = resolvedTypes.reduce((sum, tt) => sum + (quantities[tt.id] ?? 0), 0)
+
   const handleAddToBasket = () => {
     if (hasSeatPlan) {
-      // Build queue of types that need seat allocation
-      const typesWithQty = resolvedTypes.filter((tt) => (quantities[tt.id] ?? 0) > 0)
-      if (typesWithQty.length === 0) return
-      setSelectedSeatsByType({})
-      setCurrentSeatType(typesWithQty[0])
-      setSeatQueue(typesWithQty.slice(1))
+      if (totalQty === 0) return
+      setShowSeatMap(true)
     } else {
       resolvedTypes.forEach((tt) => {
         const qty = quantities[tt.id] ?? 0
@@ -66,27 +62,16 @@ export function TicketSelector({ show, film, onClose }: Props) {
   }
 
   const handleSeatConfirm = (seats: string[]) => {
-    if (!currentSeatType) return
-    const newSeats = { ...selectedSeatsByType, [currentSeatType.id]: seats }
-    setSelectedSeatsByType(newSeats)
-
-    if (seatQueue.length > 0) {
-      // Move to next ticket type
-      setCurrentSeatType(seatQueue[0])
-      setSeatQueue(seatQueue.slice(1))
-    } else {
-      // All types allocated — add everything to basket
-      resolvedTypes.forEach((tt) => {
-        ;(newSeats[tt.id] ?? []).forEach((seatId) =>
-          addTicket(show, film, tt.id, tt.name, tt.price, 1, seatId)
-        )
-      })
-      onClose()
-    }
+    // Distribute seats across ticket types in order of resolvedTypes
+    let idx = 0
+    resolvedTypes.forEach((tt) => {
+      const qty = quantities[tt.id] ?? 0
+      for (let i = 0; i < qty && idx < seats.length; i++, idx++) {
+        addTicket(show, film, tt.id, tt.name, tt.price, 1, seats[idx])
+      }
+    })
+    onClose()
   }
-
-  // Seats already spoken for: basket seats + seats allocated in earlier queue steps
-  const allocatedSoFar = Object.values(selectedSeatsByType).flat()
 
   return (
     <>
@@ -185,22 +170,17 @@ export function TicketSelector({ show, film, onClose }: Props) {
         </div>
       </div>
 
-      {currentSeatType && hasSeatPlan && (
+      {showSeatMap && hasSeatPlan && (
         <SeatMapModal
           showId={show.id}
           screenNumber={show.screen}
           seatPlan={seatPlan}
-          ticketType={currentSeatType}
-          requiredCount={quantities[currentSeatType.id] ?? 0}
-          basketSeatsForShow={[...basketSeatsForShow, ...allocatedSoFar]}
-          initialSelection={selectedSeatsByType[currentSeatType.id] ?? []}
+          label={`${totalQty} ticket${totalQty !== 1 ? 's' : ''} · ${film.title}`}
+          requiredCount={totalQty}
+          basketSeatsForShow={basketSeatsForShow}
+          initialSelection={[]}
           onConfirm={handleSeatConfirm}
-          onClose={() => {
-            // Cancel seat allocation — go back to quantity selection
-            setCurrentSeatType(null)
-            setSeatQueue([])
-            setSelectedSeatsByType({})
-          }}
+          onClose={() => setShowSeatMap(false)}
         />
       )}
     </>

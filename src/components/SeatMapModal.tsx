@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useSettingsStore } from '../store'
-import { formatPrice, getSeatIdsByType } from '../lib/utils'
+import { getSeatIdsByType } from '../lib/utils'
 import type { SeatPlan, BasketTicket } from '../types'
 
 interface Props {
   showId: string
   screenNumber: number
   seatPlan: SeatPlan
-  ticketType: { id: string; name: string; price: number }
+  label: string              // header text, e.g. "4 tickets · Screen 1"
   requiredCount: number
   basketSeatsForShow: string[]
   initialSelection: string[]
@@ -20,7 +20,7 @@ export function SeatMapModal({
   showId,
   screenNumber,
   seatPlan,
-  ticketType,
+  label,
   requiredCount,
   basketSeatsForShow,
   initialSelection,
@@ -35,7 +35,6 @@ export function SeatMapModal({
 
   const ddaSeatIds = getSeatIdsByType(seatPlan, ['dda'])
   const companionSeatIds = getSeatIdsByType(seatPlan, ['companion'])
-
   const maxCols = seatPlan.reduce((m, row) => Math.max(m, row.cells.length), 0)
 
   useEffect(() => {
@@ -77,7 +76,7 @@ export function SeatMapModal({
   }
 
   const basketSet = new Set(basketSeatsForShow.filter((s) => !initialSelection.includes(s)))
-  const totalPrice = selected.size * ticketType.price
+  const remaining = requiredCount - selected.size
 
   return (
     <div
@@ -89,9 +88,7 @@ export function SeatMapModal({
         {/* Header */}
         <div className="p-4 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-white font-bold text-base">
-              {ticketType.name} · {formatPrice(ticketType.price)}
-            </h2>
+            <h2 className="text-white font-bold text-base">{label}</h2>
             <p className="text-gray-400 text-xs mt-0.5">
               Screen {screenNumber} — select {requiredCount} seat{requiredCount !== 1 ? 's' : ''}
             </p>
@@ -99,20 +96,18 @@ export function SeatMapModal({
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none ml-4">×</button>
         </div>
 
-        {/* Seat map — no scroll, fills width */}
+        {/* Seat map */}
         <div className="p-3 sm:p-4">
           {loading ? (
             <div className="flex items-center justify-center h-32 text-gray-500 text-sm">Loading seat availability…</div>
           ) : (
             <>
-              {/* Screen label */}
               <div className="flex justify-center mb-3">
                 <div className="px-8 py-1 rounded-b-lg bg-gray-600 text-gray-300 text-[10px] tracking-widest uppercase">
                   Screen
                 </div>
               </div>
 
-              {/* CSS grid: row-label column + one column per seat */}
               <div
                 style={{
                   display: 'grid',
@@ -123,10 +118,7 @@ export function SeatMapModal({
                 {seatPlan.map((row) => {
                   let seatCounter = 0
                   const rowLabel = (
-                    <span
-                      key={`lbl-${row.label}`}
-                      className="text-gray-500 text-[9px] self-center text-right pr-0.5"
-                    >
+                    <span key={`lbl-${row.label}`} className="text-gray-500 text-[9px] self-center text-right pr-0.5">
                       {row.label}
                     </span>
                   )
@@ -142,7 +134,9 @@ export function SeatMapModal({
                     const isSelected = selected.has(seatId)
                     const isDDA = cell === 'dda'
                     const isCompanion = cell === 'companion'
-                    const isDisabled = isUnavailable || isTaken || isInBasket
+                    // Disable if unavailable/taken/in basket, OR if at max and not already selected
+                    const isDisabled = isUnavailable || isTaken || isInBasket ||
+                      (!isSelected && selected.size >= requiredCount)
 
                     let cls = 'w-full rounded flex items-center justify-center transition-colors font-medium text-[8px] overflow-hidden '
                     if (isSelected) {
@@ -153,6 +147,8 @@ export function SeatMapModal({
                       cls += 'bg-gray-500/40 text-gray-500 cursor-not-allowed'
                     } else if (isUnavailable) {
                       cls += 'bg-gray-900 text-gray-700 cursor-not-allowed'
+                    } else if (!isSelected && selected.size >= requiredCount) {
+                      cls += 'bg-gray-700 text-gray-600 cursor-not-allowed'
                     } else if (isDDA) {
                       cls += 'bg-purple-800 hover:bg-purple-600 text-purple-200 cursor-pointer'
                     } else if (isCompanion) {
@@ -178,14 +174,12 @@ export function SeatMapModal({
                 })}
               </div>
 
-              {/* Companion warning */}
               {companionWarning && (
                 <div className="mt-3 bg-amber-900/40 border border-amber-700 rounded-lg px-3 py-2 text-amber-300 text-xs text-center">
                   Companion seats can only be sold alongside a wheelchair space.
                 </div>
               )}
 
-              {/* Legend */}
               <div className="flex flex-wrap gap-2 mt-3 justify-center text-[10px] text-gray-400">
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-gray-600 inline-block" /> Standard</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-800 inline-block" /> Wheelchair</span>
@@ -202,8 +196,8 @@ export function SeatMapModal({
           {selected.size > 0 && (
             <p className="text-gray-400 text-xs mb-2">
               Selected: {Array.from(selected).sort().join(', ')}
-              {selected.size < requiredCount && (
-                <span className="text-amber-400 ml-2">({requiredCount - selected.size} more needed)</span>
+              {remaining > 0 && (
+                <span className="text-amber-400 ml-2">({remaining} more needed)</span>
               )}
             </p>
           )}
@@ -214,9 +208,9 @@ export function SeatMapModal({
           >
             {selected.size === 0
               ? `Select ${requiredCount} seat${requiredCount !== 1 ? 's' : ''} to continue`
-              : selected.size < requiredCount
-              ? `Select ${requiredCount - selected.size} more seat${requiredCount - selected.size !== 1 ? 's' : ''}`
-              : `Confirm ${selected.size} × ${ticketType.name} — ${formatPrice(totalPrice)}`}
+              : remaining > 0
+              ? `Select ${remaining} more seat${remaining !== 1 ? 's' : ''}`
+              : `Confirm ${selected.size} seat${selected.size !== 1 ? 's' : ''}`}
           </button>
         </div>
       </div>
