@@ -24,7 +24,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
   const seatPlan = seatPlans[String(show.screen)]
   const hasSeatPlan = seatPlan && seatPlan.length > 0
 
-  // Standard (no seat plan) state
+  // Phase 1: quantity selection
   const [quantities, setQuantities] = useState<Record<string, number>>(
     Object.fromEntries(resolvedTypes.map((tt) => [tt.id, 0]))
   )
@@ -33,46 +33,60 @@ export function TicketSelector({ show, film, onClose }: Props) {
   const totalPages = Math.ceil(resolvedTypes.length / PAGE_SIZE)
   const pageTypes = resolvedTypes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-  // Seat plan state
-  const [selectedSeatsByType, setSelectedSeatsByType] = useState<Record<string, string[]>>(
-    Object.fromEntries(resolvedTypes.map((tt) => [tt.id, []]))
-  )
-  const [seatMapType, setSeatMapType] = useState<SchedulerTicketType | null>(null)
+  // Phase 2: seat allocation (only when hasSeatPlan)
+  const [seatQueue, setSeatQueue] = useState<SchedulerTicketType[]>([])
+  const [currentSeatType, setCurrentSeatType] = useState<SchedulerTicketType | null>(null)
+  const [selectedSeatsByType, setSelectedSeatsByType] = useState<Record<string, string[]>>({})
 
-  // Seats already committed to basket for this show (to mark as unavailable on the map)
   const basketSeatsForShow = items
     .filter((i): i is BasketTicket => i.kind === 'ticket' && i.showId === show.id && !!(i as BasketTicket).seatId)
     .map((i) => (i as BasketTicket).seatId!)
 
-  const total = hasSeatPlan
-    ? resolvedTypes.reduce((sum, tt) => sum + (selectedSeatsByType[tt.id]?.length ?? 0) * tt.price, 0)
-    : resolvedTypes.reduce((sum, tt) => sum + (quantities[tt.id] ?? 0) * tt.price, 0)
-
-  const hasItems = hasSeatPlan
-    ? resolvedTypes.some((tt) => (selectedSeatsByType[tt.id]?.length ?? 0) > 0)
-    : resolvedTypes.some((tt) => (quantities[tt.id] ?? 0) > 0)
+  const total = resolvedTypes.reduce((sum, tt) => sum + (quantities[tt.id] ?? 0) * tt.price, 0)
+  const hasItems = resolvedTypes.some((tt) => (quantities[tt.id] ?? 0) > 0)
 
   const adjust = (id: string, delta: number) =>
     setQuantities((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + delta) }))
 
-  const confirm = () => {
+  const handleAddToBasket = () => {
     if (hasSeatPlan) {
-      resolvedTypes.forEach((tt) => {
-        ;(selectedSeatsByType[tt.id] ?? []).forEach((seatId) =>
-          addTicket(show, film, tt.id, tt.name, tt.price, 1, seatId)
-        )
-      })
+      // Build queue of types that need seat allocation
+      const typesWithQty = resolvedTypes.filter((tt) => (quantities[tt.id] ?? 0) > 0)
+      if (typesWithQty.length === 0) return
+      setSelectedSeatsByType({})
+      setCurrentSeatType(typesWithQty[0])
+      setSeatQueue(typesWithQty.slice(1))
     } else {
       resolvedTypes.forEach((tt) => {
         const qty = quantities[tt.id] ?? 0
         if (qty > 0) addTicket(show, film, tt.id, tt.name, tt.price, qty)
       })
+      onClose()
     }
-    onClose()
   }
 
-  // All seats claimed in this selector session (across all ticket types)
-  const allSessionSeats = Object.values(selectedSeatsByType).flat()
+  const handleSeatConfirm = (seats: string[]) => {
+    if (!currentSeatType) return
+    const newSeats = { ...selectedSeatsByType, [currentSeatType.id]: seats }
+    setSelectedSeatsByType(newSeats)
+
+    if (seatQueue.length > 0) {
+      // Move to next ticket type
+      setCurrentSeatType(seatQueue[0])
+      setSeatQueue(seatQueue.slice(1))
+    } else {
+      // All types allocated — add everything to basket
+      resolvedTypes.forEach((tt) => {
+        ;(newSeats[tt.id] ?? []).forEach((seatId) =>
+          addTicket(show, film, tt.id, tt.name, tt.price, 1, seatId)
+        )
+      })
+      onClose()
+    }
+  }
+
+  // Seats already spoken for: basket seats + seats allocated in earlier queue steps
+  const allocatedSoFar = Object.values(selectedSeatsByType).flat()
 
   return (
     <>
@@ -107,32 +121,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
               <p className="text-gray-500 text-sm text-center py-4">
                 No ticket types configured — add them in the scheduler.
               </p>
-            ) : hasSeatPlan ? (
-              // Seat-plan flow: one "Choose Seats" button per ticket type
-              resolvedTypes.map((tt) => {
-                const seats = selectedSeatsByType[tt.id] ?? []
-                return (
-                  <div key={tt.id}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-white font-medium">{tt.name}</span>
-                        <span className="text-gray-400 text-sm ml-2">{formatPrice(tt.price)}</span>
-                      </div>
-                      <button
-                        onClick={() => setSeatMapType(tt)}
-                        className="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded-lg transition-colors"
-                      >
-                        {seats.length > 0 ? `${seats.length} seat${seats.length !== 1 ? 's' : ''} ✏️` : 'Choose Seats'}
-                      </button>
-                    </div>
-                    {seats.length > 0 && (
-                      <p className="text-blue-400 text-xs mt-1 ml-0.5">{seats.sort().join(', ')}</p>
-                    )}
-                  </div>
-                )
-              })
             ) : (
-              // Standard quantity flow
               pageTypes.map((tt) => (
                 <div key={tt.id} className="flex items-center justify-between">
                   <div>
@@ -161,7 +150,7 @@ export function TicketSelector({ show, film, onClose }: Props) {
             )}
           </div>
 
-          {!hasSeatPlan && totalPages > 1 && (
+          {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 pb-3">
               <button
                 onClick={() => setPage((p) => p - 1)}
@@ -186,29 +175,32 @@ export function TicketSelector({ show, film, onClose }: Props) {
               {hasItems ? `Total: ${formatPrice(total)}` : 'Select tickets'}
             </span>
             <button
-              onClick={confirm}
+              onClick={handleAddToBasket}
               disabled={!hasItems}
               className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-semibold px-6 py-2.5 rounded-lg transition-colors"
             >
-              Add to Basket
+              {hasSeatPlan ? 'Choose Seats →' : 'Add to Basket'}
             </button>
           </div>
         </div>
       </div>
 
-      {seatMapType && (
+      {currentSeatType && hasSeatPlan && (
         <SeatMapModal
           showId={show.id}
           screenNumber={show.screen}
           seatPlan={seatPlan}
-          ticketType={seatMapType}
-          basketSeatsForShow={[...basketSeatsForShow, ...allSessionSeats.filter((s) => !( selectedSeatsByType[seatMapType.id] ?? []).includes(s))]}
-          initialSelection={selectedSeatsByType[seatMapType.id] ?? []}
-          onConfirm={(seats) => {
-            setSelectedSeatsByType((prev) => ({ ...prev, [seatMapType.id]: seats }))
-            setSeatMapType(null)
+          ticketType={currentSeatType}
+          requiredCount={quantities[currentSeatType.id] ?? 0}
+          basketSeatsForShow={[...basketSeatsForShow, ...allocatedSoFar]}
+          initialSelection={selectedSeatsByType[currentSeatType.id] ?? []}
+          onConfirm={handleSeatConfirm}
+          onClose={() => {
+            // Cancel seat allocation — go back to quantity selection
+            setCurrentSeatType(null)
+            setSeatQueue([])
+            setSelectedSeatsByType({})
           }}
-          onClose={() => setSeatMapType(null)}
         />
       )}
     </>

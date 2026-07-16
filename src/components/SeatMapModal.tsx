@@ -9,6 +9,7 @@ interface Props {
   screenNumber: number
   seatPlan: SeatPlan
   ticketType: { id: string; name: string; price: number }
+  requiredCount: number          // exact number of seats to allocate
   basketSeatsForShow: string[]  // seats in basket + other session types for this show
   initialSelection: string[]    // seats already chosen for this ticket type in the current session
   onConfirm: (seats: string[]) => void
@@ -20,6 +21,7 @@ export function SeatMapModal({
   screenNumber,
   seatPlan,
   ticketType,
+  requiredCount,
   basketSeatsForShow,
   initialSelection,
   onConfirm,
@@ -92,7 +94,7 @@ export function SeatMapModal({
             <h2 className="text-white font-bold text-base">
               {ticketType.name} · {formatPrice(ticketType.price)}
             </h2>
-            <p className="text-gray-400 text-xs mt-0.5">Screen {screenNumber} — tap seats to select</p>
+            <p className="text-gray-400 text-xs mt-0.5">Screen {screenNumber} — select {requiredCount} seat{requiredCount !== 1 ? 's' : ''}</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 text-xl leading-none ml-4">×</button>
         </div>
@@ -199,16 +201,21 @@ export function SeatMapModal({
           {selected.size > 0 && (
             <p className="text-gray-400 text-xs mb-2">
               Selected: {Array.from(selected).sort().join(', ')}
+              {selected.size < requiredCount && (
+                <span className="text-amber-400 ml-2">({requiredCount - selected.size} more needed)</span>
+              )}
             </p>
           )}
           <button
             onClick={() => onConfirm(Array.from(selected))}
-            disabled={selected.size === 0}
+            disabled={selected.size !== requiredCount}
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white font-bold py-3.5 rounded-xl transition-colors text-sm"
           >
             {selected.size === 0
-              ? 'Select seats to continue'
-              : `Add ${selected.size} × ${ticketType.name} — ${formatPrice(totalPrice)}`}
+              ? `Select ${requiredCount} seat${requiredCount !== 1 ? 's' : ''} to continue`
+              : selected.size < requiredCount
+              ? `Select ${requiredCount - selected.size} more seat${requiredCount - selected.size !== 1 ? 's' : ''}`
+              : `Confirm ${selected.size} × ${ticketType.name} — ${formatPrice(totalPrice)}`}
           </button>
         </div>
       </div>
