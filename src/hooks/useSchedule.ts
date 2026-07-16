@@ -20,6 +20,8 @@ export function useSchedule() {
       return
     }
     const schedule = data.data as ScheduleData
+    console.log('[schedule] seatPlans raw:', schedule.seatPlans)
+    console.log('[schedule] screenCapacities raw:', schedule.screenCapacities)
     setSchedule(
       schedule.films ?? [],
       schedule.shows ?? [],
